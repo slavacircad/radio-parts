@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Electronic Parts — Stock</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #f0e4d0;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  header {
+    text-align: center;
+    padding: 30px 20px 20px;
+  }
+  header h1 {
+    font-size: 2rem;
+    color: #5a3e28;
+    margin-bottom: 6px;
+  }
+  header p {
+    color: #8b6a4a;
+    font-size: 0.95rem;
+  }
+  .search-bar {
+    max-width: 700px;
+    margin: 20px auto;
+    display: flex;
+    gap: 10px;
+  }
+  .search-bar input {
+    flex: 1;
+    padding: 12px 18px;
+    border: 2px solid #d4bc9a;
+    border-radius: 30px;
+    font-size: 1rem;
+    background: white;
+    outline: none;
+  }
+  .search-bar input:focus { border-color: #b57c48; }
+  .search-bar button {
+    padding: 12px 22px;
+    background: #b57c48;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: bold;
+  }
+  .search-bar button:hover { background: #9a6538; }
+
+  .stats {
+    text-align: center;
+    color: #8b6a4a;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .card {
+    background: #fffaf3;
+    border: 2px solid #e2cfb5;
+    border-radius: 16px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: box-shadow 0.2s;
+  }
+  .card:hover { box-shadow: 0 4px 16px rgba(90,62,40,0.12); }
+
+  .card-photo {
+    width: 100%;
+    height: 160px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: #f5ede3;
+    border: 1px solid #e2cfb5;
+  }
+  .card-no-photo {
+    width: 100%;
+    height: 160px;
+    border-radius: 10px;
+    background: #f5ede3;
+    border: 1px dashed #d4bc9a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: #c8a87a;
+  }
+
+  .card-name {
+    font-size: 1.05rem;
+    font-weight: bold;
+    color: #3d2b1a;
+  }
+  .card-meta {
+    font-size: 0.85rem;
+    color: #7a5c3c;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .badge {
+    background: #f0e4d0;
+    border: 1px solid #d4bc9a;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.82rem;
+  }
+  .badge.qty {
+    background: #d4edda;
+    border-color: #9ecfaa;
+    color: #2d6a4f;
+    font-weight: bold;
+  }
+  .badge.qty.low {
+    background: #fde8d8;
+    border-color: #f0a87a;
+    color: #a04020;
+  }
+  .card-notes {
+    font-size: 0.83rem;
+    color: #8b6a4a;
+    border-top: 1px solid #e8d9c4;
+    padding-top: 6px;
+  }
+
+  .loading, .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: #8b6a4a;
+    font-size: 1.1rem;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 4px solid #e2cfb5;
+    border-top-color: #b57c48;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer {
+    text-align: center;
+    padding: 30px;
+    color: #b09070;
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔧 Electronic Parts Stock</h1>
+  <p>Search parts by name, part number, or storage location</p>
+</header>
+
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="🔍 Search: transistor, SMD, R-10K..." oninput="filterParts()">
+  <button onclick="loadParts()">🔄 Refresh</button>
+</div>
+
+<div class="stats" id="stats"></div>
+<div class="grid" id="grid">
+  <div class="loading" style="grid-column:1/-1">
+    <div class="spinner"></div>
+    Loading parts...
+  </div>
+</div>
+
+<footer>Electronic Repairs — Parts Inventory &nbsp;|&nbsp; Read-only view &nbsp;|&nbsp; V.Colsatchi</footer>
+
+<script>
+const SUPABASE_URL = "https://wfzncfukrtphinguasqn.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indmem5jZnVrcnRwaGluZ3Vhc3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0Nzg4MzYsImV4cCI6MjA5MTA1NDgzNn0.MknuBPHrtfEM6H-B_HGkGp5AfDNvJr1jFV0Y3yTFP9Y";
+// ⚠️ ЗАМЕНИТЕ SUPABASE_KEY выше на ваш реальный anon ключ из Supabase → Settings → API
+
+let allParts = [];
+
+async function loadParts() {
+  document.getElementById('grid').innerHTML = `
+    <div class="loading" style="grid-column:1/-1">
+      <div class="spinner"></div>Loading parts...
+    </div>`;
+  document.getElementById('stats').textContent = '';
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/radio_parts?select=*&order=name.asc`, {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    allParts = await res.json();
+    filterParts();
+  } catch(e) {
+    document.getElementById('grid').innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
+        ⚠️ Could not load data.<br><small>${e.message}</small>
+      </div>`;
+  }
+}
+
+function filterParts() {
+  const term = document.getElementById('searchInput').value.toLowerCase().trim();
+  const filtered = term
+    ? allParts.filter(p =>
+        (p.name||'').toLowerCase().includes(term) ||
+        (p.part_number||'').toLowerCase().includes(term) ||
+        (p.cell_text||'').toLowerCase().includes(term) ||
+        (p.notes||'').toLowerCase().includes(term)
+      )
+    : allParts;
+
+  const total = allParts.length;
+  const shown = filtered.length;
+  document.getElementById('stats').textContent =
+    term ? `Showing ${shown} of ${total} parts` : `${total} parts in stock`;
+
+  if (filtered.length === 0) {
+    document.getElementById('grid').innerHTML = `
+      <div class="empty" style="grid-column:1/-1">
+        🔍 No parts found for "<b>${term}</b>"
+      </div>`;
+    return;
+  }
+
+  document.getElementById('grid').innerHTML = filtered.map(p => {
+    const qty = p.quantity ?? 0;
+    const qtyClass = qty < 10 ? 'badge qty low' : 'badge qty';
+
+    const photoUrl = `${SUPABASE_URL}/storage/v1/object/public/part_photos/${p.id}.jpg`;
+    const photoHtml = `
+      <img class="card-photo" src="${photoUrl}"
+        onerror="this.outerHTML='<div class=\\"card-no-photo\\">📦</div>'"
+        alt="${p.name}">`;
+
+    const notes = p.notes
+      ? `<div class="card-notes">📝 ${escHtml(p.notes)}</div>` : '';
+
+    return `
+      <div class="card">
+        ${photoHtml}
+        <div class="card-name">${escHtml(p.name)}</div>
+        <div class="card-meta">
+          <span class="badge">🔢 ${escHtml(p.part_number||'—')}</span>
+          <span class="badge">📍 ${escHtml(p.cell_text||'—')}</span>
+          <span class="${qtyClass}">📦 ${qty} pcs</span>
+        </div>
+        ${notes}
+      </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+loadParts();
+</script>
+</body>
+</html>
